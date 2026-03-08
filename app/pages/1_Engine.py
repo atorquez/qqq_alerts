@@ -1,6 +1,9 @@
+import streamlit as st
 import sys
-st.write("Python version:", sys.version)
 import os
+
+st.write("Python version:", sys.version)
+
 
 # ---------------------------------------------------------
 # Ensure Python can find the project root
