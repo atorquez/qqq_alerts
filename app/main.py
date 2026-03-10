@@ -1,5 +1,5 @@
 import streamlit as st
-# Rev 03.10.25.v1
+# Rev 03.10.25.v2
 st.set_page_config(
     page_title="QQQ Engine",
     layout="wide"
