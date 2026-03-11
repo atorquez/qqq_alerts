@@ -129,7 +129,19 @@ chart = (
     .mark_line()
     .encode(
         x=alt.X("Date:T", title="Date"),
-        y=alt.Y("Close:Q", title="Price"),
+        y=alt.Y(
+            "Close:Q",
+            title="Price",
+            axis=alt.Axis(
+                format=".2f",
+                tickCount=20   # force more granular ticks
+            ),
+            scale=alt.Scale(
+                nice=False,
+                zero=False
+            )
+        ),
+
         tooltip=["Date:T", "Close:Q"]
     )
     .properties(height=300)
