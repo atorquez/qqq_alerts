@@ -1,3 +1,9 @@
 import streamlit as st
 
-st.switch_page("pages/1_Entry_Exit_Prices.py")
+st.set_page_config(
+    page_title="Wishing Well",
+    layout="wide"
+)
+
+st.title("🌠 Wishing Well – Smart Way to Trade")
+st.write("Select a page from the left sidebar to begin.")

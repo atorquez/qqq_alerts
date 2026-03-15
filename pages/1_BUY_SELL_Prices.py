@@ -9,8 +9,9 @@ import altair as alt
 # REVISION: 03.14.26
 
 #st.title("🔮 Wishing Well - Smart Way to Trade")
-st.title("🌠 Wishing Well - Smart Way to Trade")
-st.write("Analyze intraday price touches for realistic entry/exit hit frequency.")
+st.title("🌠 BUY and SELL Prices Strategies")
+st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
+st.write("---")
 
 # ---------------------------------------------------------
 # Sidebar inputs
@@ -21,8 +22,8 @@ days_back = st.sidebar.slider("Days Back", 5, 10, 7)
 
 # Percentile window and thresholds (model defaults)
 window = st.sidebar.slider("Percentile Window (days)", 3, 7, 5)
-entry_percentile = st.sidebar.slider("Entry Percentile", 5, 40, 25)
-exit_percentile = st.sidebar.slider("Exit Percentile", 60, 95, 75)
+entry_percentile = st.sidebar.slider("BUYPercentile", 5, 40, 25)
+exit_percentile = st.sidebar.slider("SELL Percentile", 60, 95, 75)
 
 # Gain target exit (practical trading goal)
 gain_target = st.sidebar.slider("Gain Target (%)", 0.5, 2.0, 1.5)
@@ -144,30 +145,12 @@ buy_hits, sell_hits_model, sell_hits_gain, cycles_model, cycles_gain = intraday_
 # ---------------------------------------------------------
 st.subheader("Intraday Signal Diagnostics")
 
-st.write(f"**Entry Price (Percentile):** {entry_price:.2f}")
-st.write(f"**Exit Price (Percentile Model):** {exit_price:.2f}  "
-         f"(_Gain vs Entry: {gain_pct_model:.2f}%_)")
-st.write(f"**Exit Price (Gain Target {gain_target:.2f}%):** {exit_gain_price:.2f}  "
-         f"(_Gain vs Entry: {gain_pct_target:.2f}%_)")
+st.write(f"**BUY Price (Percentile):** {entry_price:.2f}")
+st.write(f"**SELL Price (Percentile Model):** {exit_price:.2f}  "
+         f"(_Gain vs BUY: {gain_pct_model:.2f}%_)")
+st.write(f"**SELL Price (Gain Target {gain_target:.2f}%):** {exit_gain_price:.2f}  "
+         f"(_Gain vs BUY: {gain_pct_target:.2f}%_)")
 
-st.write("---")
-st.write(f"**Intraday BUY hits (shared):** {buy_hits}")
-st.write(f"**Intraday SELL hits (Percentile Exit):** {sell_hits_model}")
-st.write(f"**Intraday SELL hits (Gain-Target Exit):** {sell_hits_gain}")
-st.write(f"**Completed cycles (Percentile Exit):** {cycles_model}")
-st.write(f"**Completed cycles (Gain-Target Exit):** {cycles_gain}")
-
-if cycles_model > 0:
-    avg_minutes_model = len(df_last7) / cycles_model
-    st.write(f"**Average minutes per cycle (Percentile Exit):** {avg_minutes_model:.1f}")
-else:
-    st.write("**Average minutes per cycle (Percentile Exit):** No completed cycles")
-
-if cycles_gain > 0:
-    avg_minutes_gain = len(df_last7) / cycles_gain
-    st.write(f"**Average minutes per cycle (Gain-Target Exit):** {avg_minutes_gain:.1f}")
-else:
-    st.write("**Average minutes per cycle (Gain-Target Exit):** No completed cycles")
 
 # ---------------------------------------------------------
 # Trend Panel (MA10 + MA20) using SAME ticker
@@ -307,6 +290,26 @@ def plot_ma_panel(ticker, container):
 
 plot_ma_panel(ticker, st)
 
+st.write("""
+### 📘 How to Read This Chart
+
+**BUY TQQQ (Nasdaq DOWN):**
+1. MA10 crosses **below** MA20  
+2. Price is **below** MA10  
+3. Red volume bars increasing (selling pressure)  
+4. Nasdaq closing direction = **DOWN**
+
+**BUY SQQQ (Nasdaq UP):**
+1. MA10 crosses **above** MA20  
+2. Price is **above** MA10  
+3. Green volume bars increasing (buying pressure)  
+4. Nasdaq closing direction = **UP**
+
+These signals help identify short-term overextensions and pullbacks that align with the Wishing Well 3‑Block Strategy.
+""")
+
+st.write("---")
+
 # ---------------------------------------------------------
 # Nasdaq Up/Down Sequence (Last 30 Days + Streak Detection)
 # ---------------------------------------------------------
@@ -367,6 +370,29 @@ else:
             st.dataframe(long_streaks[["Close", "Pct_Change", "Direction", "Streak"]], height=300, use_container_width=True)
         else:
             st.info("No UP or DOWN streaks of 3+ days in the last 60 days.")
+
+#--------------------------------------------------------
+# Extra Data 
+#--------------------------------------------------------
+st.write("---")
+st.write(f"**Intraday BUY hits (shared):** {buy_hits}")
+st.write(f"**Intraday SELL hits (Percentile Exit):** {sell_hits_model}")
+st.write(f"**Intraday SELL hits (Gain-Target Exit):** {sell_hits_gain}")
+st.write(f"**Completed cycles (Percentile Exit):** {cycles_model}")
+st.write(f"**Completed cycles (Gain-Target Exit):** {cycles_gain}")
+
+if cycles_model > 0:
+    avg_minutes_model = len(df_last7) / cycles_model
+    st.write(f"**Average minutes per cycle (Percentile Exit):** {avg_minutes_model:.1f}")
+else:
+    st.write("**Average minutes per cycle (Percentile Exit):** No completed cycles")
+
+if cycles_gain > 0:
+    avg_minutes_gain = len(df_last7) / cycles_gain
+    st.write(f"**Average minutes per cycle (Gain-Target Exit):** {avg_minutes_gain:.1f}")
+else:
+    st.write("**Average minutes per cycle (Gain-Target Exit):** No completed cycles")
+st.write("---")
 
 # ---------------------------------------------------------
 # 2) Show the 7-day intraday table SECOND
