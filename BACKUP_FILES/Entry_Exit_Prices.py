@@ -4,12 +4,10 @@ st.set_page_config(layout="wide")
 import yfinance as yf
 import pandas as pd
 import numpy as np
-import altair as alt
 
 # REVISION: 03.14.26
 
-#st.title("🔮 Wishing Well - Smart Way to Trade")
-st.title("🌠 Wishing Well - Smart Way to Trade")
+st.title("💧 Wishing Well = Smart Way to Trade")
 st.write("Analyze intraday price touches for realistic entry/exit hit frequency.")
 
 # ---------------------------------------------------------
@@ -170,10 +168,13 @@ else:
     st.write("**Average minutes per cycle (Gain-Target Exit):** No completed cycles")
 
 # ---------------------------------------------------------
-# Trend Panel (MA10 + MA20) using SAME ticker
+# NEW: TQQQ / SQQQ Trend Panel (MA10 + MA20)
 # ---------------------------------------------------------
-st.subheader("Short-Term Trend (MA10 & MA20)")
-def plot_ma_panel(ticker, container):
+st.subheader("TQQQ / SQQQ – Short-Term Trend (MA10 & MA20)")
+
+col1, col2 = st.columns(2)
+
+def plot_ma_panel(ticker, title, container):
     df_daily = yf.download(ticker, period="40d", interval="1d", progress=False)
 
     if df_daily.empty:
@@ -181,131 +182,22 @@ def plot_ma_panel(ticker, container):
         return
 
     df_daily = df_daily.dropna()
-
-    # Flatten MultiIndex if needed
-    if isinstance(df_daily.columns, pd.MultiIndex):
-        df_daily.columns = [col[0] for col in df_daily.columns]
-
-    # Compute moving averages
     df_daily["MA10"] = df_daily["Close"].rolling(10).mean()
     df_daily["MA20"] = df_daily["Close"].rolling(20).mean()
 
-    # Last 20 days
-    df_plot = df_daily.tail(20).copy()
+    df_plot = df_daily.tail(20)
 
-    # Reset index for Altair
-    df_plot = df_plot.reset_index().rename(columns={"index": "Date"})
-
-    # Detect crossovers
-    df_plot["prev_MA10"] = df_plot["MA10"].shift(1)
-    df_plot["prev_MA20"] = df_plot["MA20"].shift(1)
-
-    df_plot["bullish"] = (
-        (df_plot["prev_MA10"] < df_plot["prev_MA20"]) &
-        (df_plot["MA10"] > df_plot["MA20"])
+    container.write(f"**{title}** (Last 20 Days)")
+    container.line_chart(
+        df_plot[["Close", "MA10", "MA20"]],
+        height=250
     )
 
-    df_plot["bearish"] = (
-        (df_plot["prev_MA10"] > df_plot["prev_MA20"]) &
-        (df_plot["MA10"] < df_plot["MA20"])
-    )
+with col1:
+    plot_ma_panel("TQQQ", "TQQQ Trend", col1)
 
-    # Melt for Altair
-    df_long = df_plot.melt(
-        id_vars=["Date"],
-        value_vars=["Close", "MA10", "MA20"],
-        var_name="variable",
-        value_name="value"
-    )
-
-    df_long["value"] = df_long["value"].astype(float)
-
-    # DYNAMIC Y-AXIS SCALING
-    vmin = df_long["value"].min()
-    vmax = df_long["value"].max()
-
-    pad = (vmax - vmin) * 0.10
-    domain_min = vmin - pad
-    domain_max = vmax + pad
-
-    price_range = vmax - vmin
-
-    if price_range < 1:
-        step = 0.05
-    elif price_range < 3:
-        step = 0.10
-    elif price_range < 8:
-        step = 0.25
-    else:
-        step = 0.50
-
-    y_values = list(np.arange(domain_min, domain_max + step, step))
-
-    # ---------------------------------------------------------
-    # PRICE + MA LINES
-    # ---------------------------------------------------------
-    price_lines = (
-        alt.Chart(df_long)
-        .mark_line()
-        .encode(
-            x=alt.X("Date:T",
-                axis=alt.Axis(title="Date", format="%b %d", labelAngle=-30)
-            ),
-            y=alt.Y("value:Q",
-                axis=alt.Axis(title="Price", format=".2f", values=y_values),
-                scale=alt.Scale(domain=[domain_min, domain_max])
-            ),
-            color=alt.Color("variable:N", title="Series"),
-            tooltip=["Date:T", "variable:N", "value:Q"]
-        )
-    )
-
-    # ---------------------------------------------------------
-    # CROSSOVER MARKERS
-    # ---------------------------------------------------------
-    bullish_points = (
-        alt.Chart(df_plot[df_plot["bullish"]])
-        .mark_point(color="green", size=100)
-        .encode(x="Date:T", y="MA10:Q")
-    )
-
-    bearish_points = (
-        alt.Chart(df_plot[df_plot["bearish"]])
-        .mark_point(color="red", size=100)
-        .encode(x="Date:T", y="MA10:Q")
-    )
-
-    # ---------------------------------------------------------
-    # VOLUME BARS (Option A: Green/Red)
-    # ---------------------------------------------------------
-    df_plot["prev_close"] = df_plot["Close"].shift(1)
-    df_plot["vol_color"] = df_plot.apply(
-        lambda row: "green" if row["Close"] > row["prev_close"] else "red",
-        axis=1
-    )
-
-    volume_bars = (
-        alt.Chart(df_plot)
-        .mark_bar()
-        .encode(
-            x="Date:T",
-            y=alt.Y("Volume:Q", axis=alt.Axis(title="Volume")),
-            color=alt.Color("vol_color:N", scale=None)
-        )
-        .properties(height=80)
-    )
-
-    # ---------------------------------------------------------
-    # COMBINE CHARTS (vertical stack)
-    # ---------------------------------------------------------
-    final_chart = alt.vconcat(
-        price_lines + bullish_points + bearish_points,
-        volume_bars
-    ).resolve_scale(x="shared")
-
-    container.altair_chart(final_chart, width="stretch")
-
-plot_ma_panel(ticker, st)
+with col2:
+    plot_ma_panel("SQQQ", "SQQQ Trend", col2)
 
 # ---------------------------------------------------------
 # Nasdaq Up/Down Sequence (Last 30 Days + Streak Detection)
@@ -358,13 +250,13 @@ else:
         ndx_last60_fmt["Change"] = ndx_last60_fmt["Change"].map(lambda x: f"{x:.2f}")
         ndx_last60_fmt["Pct_Change"] = ndx_last60_fmt["Pct_Change"].map(lambda x: f"{x:.2f}%")
 
-        st.dataframe(ndx_last60_fmt, height=400, use_container_width=True)
+        st.dataframe(ndx_last60_fmt, use_container_width=True)
 
         long_streaks = ndx_last60[ndx_last60["Streak"] >= 3]
 
         if not long_streaks.empty:
             st.success("Detected UP/DOWN streaks of 3+ days:")
-            st.dataframe(long_streaks[["Close", "Pct_Change", "Direction", "Streak"]], height=300, use_container_width=True)
+            st.dataframe(long_streaks[["Close", "Pct_Change", "Direction", "Streak"]], use_container_width=True)
         else:
             st.info("No UP or DOWN streaks of 3+ days in the last 60 days.")
 
