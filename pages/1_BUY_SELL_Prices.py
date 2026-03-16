@@ -9,7 +9,7 @@ import altair as alt
 # REVISION: 03.14.26
 
 #st.title("🔮 Wishing Well - Smart Way to Trade")
-st.title("🌠 BUY and SELL Prices Strategies")
+st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
 st.write("---")
 
