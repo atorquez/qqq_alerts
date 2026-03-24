@@ -22,11 +22,11 @@ days_back = st.sidebar.slider("Days Back", 5, 10, 7)
 
 # Percentile window and thresholds (model defaults)
 window = st.sidebar.slider("Percentile Window (days)", 3, 7, 5)
-entry_percentile = st.sidebar.slider("BUYPercentile", 5, 40, 25)
-exit_percentile = st.sidebar.slider("SELL Percentile", 60, 95, 75)
+entry_percentile = st.sidebar.slider("BUYPercentile", 5, 40, 15)
+exit_percentile = st.sidebar.slider("SELL Percentile", 60, 95, 85)
 
 # Gain target exit (practical trading goal)
-gain_target = st.sidebar.slider("Gain Target (%)", 0.5, 2.0, 1.5)
+gain_target = st.sidebar.slider("Gain Target (%)", 1.5, 3.0, 2.0)
 
 # ---------------------------------------------------------
 # Fetch intraday data ONCE
@@ -146,10 +146,14 @@ buy_hits, sell_hits_model, sell_hits_gain, cycles_model, cycles_gain = intraday_
 st.subheader("Intraday Signal Diagnostics")
 
 st.write(f"**BUY Price (Percentile):** {entry_price:.2f}")
-st.write(f"**SELL Price (Percentile Model):** {exit_price:.2f}  "
-         f"(_Gain vs BUY: {gain_pct_model:.2f}%_)")
-st.write(f"**SELL Price (Gain Target {gain_target:.2f}%):** {exit_gain_price:.2f}  "
-         f"(_Gain vs BUY: {gain_pct_target:.2f}%_)")
+
+# SELL Ladder
+exit_gain_15 = entry_price * 1.015
+exit_gain_20 = entry_price * 1.020
+
+st.write(f"**SELL #1 (1.5% Gain):** {exit_gain_15:.2f}")
+st.write(f"**SELL #2 (2.0% Gain):** {exit_gain_20:.2f}")
+st.write(f"**SELL #3 (Percentile SELL):** {exit_price:.2f}")
 
 
 # ---------------------------------------------------------
