@@ -7,7 +7,7 @@ import numpy as np
 import altair as alt
 import math
 
-# REVISION: 04.04.26 v5 — Stable Percentiles + Stable Timezones + Stable Slicing
+# REVISION: 04.04.26 v6 — Stable Percentiles + Stable Timezones + Stable Slicing
 
 st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
@@ -200,19 +200,40 @@ rows = []
 for d in discount_levels:
     row = {"% Discount": f"-{d}%"}
     for t in tickers:
-        if data[t] is not None:
-            raw_buy = data[t] * (1 - d/100)
-            buy_price = round_up_to_tenth(raw_buy)
-            row[t] = f"${buy_price:.2f}"
 
-            raw_sell = buy_price * 1.04
-            sell_price = round_up_to_tenth(raw_sell)
-            row[f"SELL {t} 4%"] = f"${sell_price:.2f}"
-        else:
+        # Fetch last 3 days of daily data
+        hist = yf.download(t, period="3d", interval="1d", progress=False)
+
+        # SAFETY GUARD — Ensure at least 2 rows exist
+        if hist is None or hist.empty or len(hist) < 2:
             row[t] = "N/A"
             row[f"SELL {t} 4%"] = "N/A"
-    rows.append(row)
+            continue
 
+        # Normalize columns (Yahoo sometimes returns MultiIndex)
+        if isinstance(hist.columns, pd.MultiIndex):
+            hist.columns = [col[0] for col in hist.columns]
+
+        # Ensure Close column exists
+        if "Close" not in hist.columns:
+            row[t] = "N/A"
+            row[f"SELL {t} 4%"] = "N/A"
+            continue
+
+        # Use yesterday’s close (second‑to‑last row)
+        yesterday_close = float(hist["Close"].iloc[-2])
+
+        # Compute BUY price
+        raw_buy = yesterday_close * (1 - d/100)
+        buy_price = round_up_to_tenth(raw_buy)
+        row[t] = f"${buy_price:.2f}"
+
+        # Compute SELL price (4% gain)
+        raw_sell = buy_price * 1.04
+        sell_price = round_up_to_tenth(raw_sell)
+        row[f"SELL {t} 4%"] = f"${sell_price:.2f}"
+
+    rows.append(row)
 df_discount = pd.DataFrame(rows)
 st.dataframe(df_discount, use_container_width=True, height=420)
 
