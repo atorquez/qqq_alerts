@@ -7,7 +7,7 @@ import numpy as np
 import altair as alt
 import math
 
-# REVISION: 04.04.26 v3 — Stable Percentiles + Stable Timezones + Stable Slicing
+# REVISION: 04.04.26 v5 — Stable Percentiles + Stable Timezones + Stable Slicing
 
 st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
@@ -92,9 +92,31 @@ if not fallback_mode:
 # ---------------------------------------------------------
 def intraday_signals_dual(df, entry_price, exit_price, exit_gain_price):
 
-    if df.empty or len(df) < 2:
+    # SAFETY GUARD 1 — DataFrame exists and has rows
+    if df is None or df.empty:
         return 0, 0, 0, 0, 0
 
+    # SAFETY GUARD 2 — Normalize columns (Yahoo sometimes returns MultiIndex)
+    if isinstance(df.columns, pd.MultiIndex):
+        df.columns = [col[0] for col in df.columns]
+
+    # SAFETY GUARD 3 — Strip spaces and unify column names
+    df.columns = df.columns.str.strip()
+
+    # SAFETY GUARD 4 — Standardize to title case (Open, High, Low, Close)
+    df.columns = df.columns.str.title()
+
+    # SAFETY GUARD 5 — Required OHLC columns must exist BEFORE dropna
+    required_cols = ["Low", "High", "Close"]
+    if not all(col in df.columns for col in required_cols):
+        return 0, 0, 0, 0, 0
+
+    # SAFETY GUARD 6 — Drop rows with missing OHLC values
+    df = df.dropna(subset=required_cols)
+    if len(df) < 2:
+        return 0, 0, 0, 0, 0
+
+    # NORMAL LOGIC
     buy_hits = 0
     sell_hits_model = 0
     sell_hits_gain = 0
@@ -114,22 +136,20 @@ def intraday_signals_dual(df, entry_price, exit_price, exit_gain_price):
             momentum = "UP"
         elif close_now < close_prev:
             momentum = "DOWN"
+            # SELL logic
         else:
             momentum = "FLAT"
 
-        # BUY
         if (not in_pos_model or not in_pos_gain) and low <= entry_price and momentum == "UP":
             buy_hits += 1
             in_pos_model = True
             in_pos_gain = True
 
-        # SELL A: percentile exit
         if in_pos_model and high >= exit_price and momentum == "DOWN":
             sell_hits_model += 1
             cycles_model += 1
             in_pos_model = False
 
-        # SELL B: gain-target exit
         if in_pos_gain and high >= exit_gain_price and momentum == "DOWN":
             sell_hits_gain += 1
             cycles_gain += 1
