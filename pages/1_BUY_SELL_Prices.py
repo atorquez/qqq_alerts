@@ -7,7 +7,7 @@ import numpy as np
 import altair as alt
 import math
 
-# REVISION: 04.04.26 v6 — Stable Percentiles + Stable Timezones + Stable Slicing
+# REVISION: 04.04.26 v7 — Stable Percentiles + Stable Timezones + Stable Slicing
 
 st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
@@ -199,23 +199,30 @@ for t in tickers:
 rows = []
 for d in discount_levels:
     row = {"% Discount": f"-{d}%"}
+
     for t in tickers:
 
         # Fetch last 3 days of daily data
         hist = yf.download(t, period="3d", interval="1d", progress=False)
 
-        # SAFETY GUARD — Ensure at least 2 rows exist
-        if hist is None or hist.empty or len(hist) < 2:
+        # SAFETY GUARD 1 — DataFrame must exist and have rows
+        if hist is None or hist.empty:
             row[t] = "N/A"
             row[f"SELL {t} 4%"] = "N/A"
             continue
 
-        # Normalize columns (Yahoo sometimes returns MultiIndex)
+        # SAFETY GUARD 2 — Normalize columns (Yahoo sometimes returns MultiIndex)
         if isinstance(hist.columns, pd.MultiIndex):
             hist.columns = [col[0] for col in hist.columns]
 
-        # Ensure Close column exists
+        # SAFETY GUARD 3 — Ensure Close column exists
         if "Close" not in hist.columns:
+            row[t] = "N/A"
+            row[f"SELL {t} 4%"] = "N/A"
+            continue
+
+        # SAFETY GUARD 4 — Need at least 2 rows to use iloc[-2]
+        if len(hist) < 2:
             row[t] = "N/A"
             row[f"SELL {t} 4%"] = "N/A"
             continue
