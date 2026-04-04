@@ -4,148 +4,176 @@ st.title("📘 Instructions")
 st.write("Welcome to the Wishing Well strategy guide.")
 
 st.markdown("""
-## TQQQ/SQQQ 3‑Block Strategy  
-**Reactive, Percentile‑Based, Multi‑Day Leveraged ETF System**
-
+Wishing Well Strategy — TQQQ/SQQQ Model  
+Volatility‑Aware, Asymmetric, Multi‑Engine Leveraged ETF System
+With Real‑World Execution Rules (MOC / Manual Close Execution)
 ---
-
-## 1. Overview
-This document describes a reactive, percentile‑based, multi‑day accumulation strategy for trading leveraged ETFs (TQQQ and SQQQ).
-
-### The system uses:
-- Nasdaq daily direction  
-- Percentile‑based entry levels  
-- A 3‑block capital architecture  
-- Gain‑target or percentile exits  
-
-### The strategy is designed to:
-- Buy deeper during multi‑day streaks  
-- Reduce average cost through structured block entries  
-- Exit on statistically reliable rebounds  
-- Avoid stop‑losses that disrupt cycle completion  
-- Maintain discipline and risk control through block sizing  
-
+1. Core Philosophy
+• 	TQQQ = Recovery asset (3× long NDX)
+• 	SQQQ = Tactical hedge (–3× short NDX)
+• 	Index anchor: Nasdaq‑100 (NDX), not Nasdaq Composite
+• 	Volatility drives opportunity
+• 	All BUY decisions are based on the closing price
+• 	Execution must occur at the close, not after
+• 	If you cannot execute at the close, you skip the BUY
+• 	System is reactive, not predictive
 ---
-
-## 2. Capital Architecture
-Total capital is divided into **3 equal blocks**.
-
-Example:
-- Total: **$1,200**  
-- Block 1: **$400**  
-- Block 2: **$400**  
-- Block 3: **$400**  
-
+2. Capital Architecture
+• 	Total capital is divided into 3 equal TQQQ blocks.
+• 	SQQQ uses at most 1 block (never laddered).
+• 	No averaging down SQQQ.
+• 	TQQQ can use all 3 blocks in a down‑continuation sequence.
 ---
-
-## 3. Market Signal (Nasdaq Direction)
-- Nasdaq **UP** → Buy **SQQQ**  
-- Nasdaq **DOWN** → Buy **TQQQ**  
-
-This keeps the strategy aligned with short‑term market movement.
-
+3. Market Signal (NDX Direction)
+• 	NDX DOWN → TQQQ engines active
+• 	NDX UP → SQQQ engine active
+• 	Volatility magnitude determines which engines activate (A/B/C).
 ---
+4. BUY Engines (Price‑Based)
 
-## 4. BUY Logic (Percentile‑Based)
-Each day, the system calculates the **15th percentile entry price** for the appropriate ETF.
+Engine A — TQQQ Rebound BUY
+Purpose: Capture reversal after TQQQ was the loser.
+BUY level:
+TQQQ Close × 1.005
+Block: Usually Block 1.          
 
-### Entry Ladder:
-- Day 1 → BUY Price 1  
-- Day 2 → BUY Price 2  
-- Day 3 → BUY Price 3  
+Engine B — SQQQ Winner Discount BUY
+Purpose: Capture deep pullback in SQQQ after it was the winner.
+BUY zone:
+SQQQ Close × 0.95 to 0.92
+Block: 1 only (never laddered).
 
-**Rule:** Each new BUY price must be lower than the previous one.
-
-### 📌 Important: BUY Timing (End‑of‑Day Only)
-
-All BUY decisions are made **after the market close**, never intraday.
-
-This is essential because:
-
-- Intraday direction is unstable and often reverses  
-- The true daily direction is only known at the close  
-- Percentile entry prices require the final daily candle  
-- Buying intraday can break the 3‑block ladder  
-- Early dips are often false signals  
-
-**Therefore:  
-All block entries (Block 1, Block 2, Block 3) are executed at the closing price only.**            
-
+Engine C — TQQQ Deep‑Discount Continuation BUY
+Purpose: Capture oversold continuation during multi‑day NDX declines.
+BUY zone:
+TQQQ Close × 0.94 to 0.92
+Blocks: 2 and 3.  
 ---
-
-## 5. Block BUY Ladder
-
-You buy **one block per day**, and **only after the market close**, when:
-
-- The Nasdaq closing direction matches the ETF (DOWN → TQQQ, UP → SQQQ)  
-- The new BUY price is lower than the previous day’s BUY
-- You still have unused blocks  
-
-This creates a disciplined 3‑step ladder:
-
-- **Block 1** → shallow dip  
-- **Block 2** → deeper dip  
-- **Block 3** → deepest dip  
-
-**No intraday buys are ever executed.  
-All entries occur at the close to avoid false signals and maintain ladder integrity.**
-        
- ---
-
-## 6. SELL Logic
-The system exits using whichever condition triggers first:
-
-### A) Gain‑Target Exit
-- Typically **+1.5% to +2.0%**  
-- Fast and reliable  
-
-### B) Percentile Exit
-- Typically **60th–75th percentile**  
-- Larger gains  
-
-### 📌 Important: SELL all shares equal to exiting BUY to unclock al gains from the BUY            
-
+5. Block Rules and Asymmetry
+TQQQ (Recovery Asset)
+• 	Max 3 blocks.
+• 	Blocks 1–3 form the ladder.
+• 	Average cost determines break‑even.
+• 	Hold through downturns.
+• 	Exit only when price > average.
+• 	Never reset at a loss.
+SQQQ (Tactical Hedge)
+• 	Max 1 block.
+• 	Never averaged down.
+• 	Never held through a rebound.
+• 	Sold quickly on +0.5% target or trailing stop.        
 ---
-
-## 7. No More BUYs After 3 Blocks
-If the streak continues:
-- Day 4 → **no more BUYs**  
-- You hold and wait for the rebound exit  
-
+6. SELL Logic (Unified)
+• 	Target: +0.5%
+• 	Trailing stop: 0.3%
+• 	Applies to all engines.
+• 	When SELL triggers → all shares of that ETF are sold.
+• 	After exit → that ETF’s cycle resets.
 ---
-
-## 8. Order Execution
-### BUY Orders:
-- Limit buy at the daily BUY price  
-- **Executed only after the market close**  
-- Never triggered intraday            
-           
-### SELL Orders:
-- Limit sell at the daily SELL price  
-- **Do NOT use trailing stops**  
-
+7. Reset Rules
+• 	TQQQ: Reset only after profitable exit.
+• 	SQQQ: Reset after each exit.
+• 	Never reset mid‑drawdown.
+• 	Never reset TQQQ before rebound.
 ---
-
-## 9. Drawdown Handling
-The system does **not** use stop‑losses because:
-- Leveraged ETFs rebound strongly  
-- Block averaging reduces cost  
-- Stop‑losses often trigger before the rebound  
-
+8. Drawdown Handling
+• 	No stop‑losses on TQQQ.
+• 	No averaging down SQQQ.
+• 	No more than 3 TQQQ blocks.
+• 	No more than 1 SQQQ block.
+• 	No intraday discretionary overrides.
 ---
+9. Execution Rules (Updated for Real‑World Constraint)
+The model requires closing‑price‑based BUY levels, but:
+• 	You cannot buy the closing price after hours.
+• 	You must execute at the close.
+• 	If you cannot execute at the close, you skip the BUY.
 
-## 10. Real‑World Testing
-- Day 1: Nasdaq DOWN → Block 1  
-- Day 2: Nasdaq DOWN → Block 2  
-- Day 3: Observe (DOWN → Block 3, UP → prepare for exit)  
+9.1 BUY Execution Options
+Option A — MOC (Market‑On‑Close) Order
+• 	Must be placed before ~3:50 PM.
+• 	Guarantees the official closing price.
+• 	Best for Engines A and C.
+• 	Works for SQQQ Engine B only if price is already in the BUY zone.
 
+Option B — Manual Execution (3:58–4:00 PM)
+• 	Watch the tape.
+• 	Execute a market or limit order near the close.
+• 	Achieves a price extremely close to the official close.
+• 	Works for all engines.
 ---
+9.2 If You Cannot Monitor the Close
+• 	You skip the BUY for that day.
+• 	You do not attempt after‑hours buying.
+• 	You do not chase the price the next morning.
+• 	You do not break the block ladder.
+Skipping is always safer than forcing.
+            
+9.3 Why Skipping Is Safe
+• 	The model is reactive, not predictive.
+• 	Missing a BUY does not break the system.
+• 	You never violate risk limits.
+• 	You never distort the block structure.
+• 	You avoid emotional or forced trades.
+• 	You maintain mathematical integrity.
 
-## 11. Summary
-This strategy is:
-- Reactive, not predictive  
-- Statistical, not emotional  
-- Structured, not discretionary  
-- Risk‑controlled through block sizing  
-- Profitable through disciplined exits  
-""")   
+9.4 Future Automation
+The app will eventually:
+• 	Detect NDX direction at 3:59 PM.
+• 	Trigger the correct engine.
+• 	Place MOC orders automatically.
+• 	Log fills.
+• 	Update blocks.
+• 	Maintain full automation of the ladder.
+---
+10. Daily Workflow (Updated)
+After the close (night before):
+• 	Calculate BUY levels for Engines A/B/C.
+• 	Determine active engines.
+• 	Prepare next‑day plan.
+During the next day:
+• 	If you can monitor the close → execute via MOC or manual.
+• 	If not → skip BUY.
+After the close:
+• 	Record fills.
+• 	Update average cost (TQQQ).
+• 	Recalculate BUY levels.
+• 	Continue cycle.
+---
+11. Key Model Truths
+• 	TQQQ rebounds; SQQQ decays.
+• 	TQQQ = 3‑block recovery engine.
+• 	SQQQ = 1‑block tactical hedge.
+• 	NDX is the correct index.
+• 	You never exceed block limits.
+• 	You only need +3–6% rebound to recover a 3‑block TQQQ sequence.
+• 	Execution must occur at the close, not after.            
+---
+Appendix — BUY & SELL Price Formulas
+
+BUY Price (Percentile Method)
+The BUY price is based on the selected BUYPercentile applied to the last N daily closing prices.
+
+Formula
+BUY Price = Percentile(Recently Daily Closes, BUYPercentile)  
+
+Interpretation
+A lower percentile (e.g., 15%) identifies a pullback level, where price is relatively low compared to recent history.
+  
+SELL Price (Closing Method)           
+
+A. SELL #1 — Safety Exit (+1.5%)
+Formula SELL Price = BUY Price * (1 + 1.015)
+
+B. SELL #2 — Optimal Exit (+2.0%)
+
+Formula
+SELL Price = BUY Price * (1 + 1.020)
+            
+C. SELL #3 — Percentile SELL (Exit Percentile)
+This uses the SELLPercentile applied to the same recent daily closes.
+
+Formula
+SELL Price = Percentile(Recently Daily Closes, SELLPercentile)
+
+""")

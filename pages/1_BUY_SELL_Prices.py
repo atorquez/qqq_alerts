@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-# REVISION: 03.14.26
+# REVISION: 04.04.26
 
 #st.title("🔮 Wishing Well - Smart Way to Trade")
 st.title("🌠 BUY and SELL Strategies")
@@ -22,8 +22,8 @@ days_back = st.sidebar.slider("Days Back", 5, 10, 7)
 
 # Percentile window and thresholds (model defaults)
 window = st.sidebar.slider("Percentile Window (days)", 3, 7, 5)
-entry_percentile = st.sidebar.slider("BUYPercentile", 5, 40, 15)
-exit_percentile = st.sidebar.slider("SELL Percentile", 60, 95, 85)
+entry_percentile = st.sidebar.slider("BUYPercentile", 5, 30, 25)
+exit_percentile = st.sidebar.slider("SELL Percentile", 60, 90, 85)
 
 # Gain target exit (practical trading goal)
 gain_target = st.sidebar.slider("Gain Target (%)", 1.5, 3.0, 2.0)
@@ -148,12 +148,60 @@ st.subheader("Intraday Signal Diagnostics")
 st.write(f"**BUY Price (Percentile):** {entry_price:.2f}")
 
 # SELL Ladder
-exit_gain_15 = entry_price * 1.015
-exit_gain_20 = entry_price * 1.020
+exit_gain_15 = entry_price * 1.005
+exit_gain_20 = entry_price * 1.008
 
-st.write(f"**SELL #1 (1.5% Gain):** {exit_gain_15:.2f}")
-st.write(f"**SELL #2 (2.0% Gain):** {exit_gain_20:.2f}")
+st.write(f"**SELL #1 (0.5% Gain):** {exit_gain_15:.2f}")
+st.write(f"**SELL #2 (0.8% Gain):** {exit_gain_20:.2f}")
 st.write(f"**SELL #3 (Percentile SELL):** {exit_price:.2f}")
+
+# ---------------------------------------------------------
+# Deep-Dip Discount Planning Table (Rounded Up to 0.10)
+# ---------------------------------------------------------
+st.subheader("Deep-Dip Discount Planning Table")
+
+import math
+
+def round_up_to_tenth(x):
+    return math.ceil(x * 10) / 10
+
+tickers = ["SQQQ", "TQQQ"]
+discount_levels = list(range(0, 13))  # 0% to -12%
+
+data = {}
+for t in tickers:
+    # Fetch 3 days to avoid intraday contamination
+    hist = yf.download(t, period="3d", interval="1d", progress=False)
+
+    if len(hist) >= 2:
+        hist = hist.sort_index()
+        last_close = float(hist["Close"].iloc[-2])  # yesterday's close
+        data[t] = last_close
+    else:
+        data[t] = None
+
+rows = []
+for d in discount_levels:
+    row = {"% Discount": f"-{d}%"}
+    for t in tickers:
+        if data[t] is not None:
+            # BUY price
+            raw_buy = data[t] * (1 - d/100)
+            buy_price = round_up_to_tenth(raw_buy)
+            row[t] = f"${buy_price:.2f}"
+
+            # SELL price (+4%)
+            raw_sell = buy_price * 1.04
+            sell_price = round_up_to_tenth(raw_sell)
+            row[f"SELL {t} 4%"] = f"${sell_price:.2f}"
+        else:
+            row[t] = "N/A"
+            row[f"SELL {t} 4%"] = "N/A"
+
+    rows.append(row)
+
+df_discount = pd.DataFrame(rows)
+st.dataframe(df_discount, use_container_width=True, height=420)
 
 
 # ---------------------------------------------------------
@@ -338,7 +386,21 @@ else:
         ndx_df = pd.DataFrame({"Close": closes})
         ndx_df["Change"] = ndx_df["Close"].diff()
         ndx_df["Pct_Change"] = ndx_df["Change"] / ndx_df["Close"].shift(1) * 100
+        
+        ndx_df["Volatility"] = ndx_df["Pct_Change"].abs()
 
+        def classify_vol(v):
+            if v < 0.6:
+                return "LOW"
+            elif v < 1.4:
+                return "NORMAL"
+            elif v < 2.2:
+                return "HIGH"
+            else:
+                return "EXTREME"
+
+        ndx_df["Vol_Category"] = ndx_df["Volatility"].apply(classify_vol)
+        
         ndx_df["Direction"] = ndx_df["Pct_Change"].apply(
             lambda x: "UP" if x > 0 else ("DOWN" if x < 0 else "FLAT")
         )
@@ -364,7 +426,8 @@ else:
         ndx_last60_fmt["Close"] = ndx_last60_fmt["Close"].map(lambda x: f"{x:.2f}")
         ndx_last60_fmt["Change"] = ndx_last60_fmt["Change"].map(lambda x: f"{x:.2f}")
         ndx_last60_fmt["Pct_Change"] = ndx_last60_fmt["Pct_Change"].map(lambda x: f"{x:.2f}%")
-
+        ndx_last60_fmt["Volatility"] = ndx_last60_fmt["Volatility"].map(lambda x: f"{x:.2f}%")
+        
         st.dataframe(ndx_last60_fmt, height=400, use_container_width=True)
 
         long_streaks = ndx_last60[ndx_last60["Streak"] >= 3]
@@ -374,6 +437,7 @@ else:
             st.dataframe(long_streaks[["Close", "Pct_Change", "Direction", "Streak"]], height=300, use_container_width=True)
         else:
             st.info("No UP or DOWN streaks of 3+ days in the last 60 days.")
+
 
 #--------------------------------------------------------
 # Extra Data 
@@ -399,7 +463,49 @@ else:
 st.write("---")
 
 # ---------------------------------------------------------
-# 2) Show the 7-day intraday table SECOND
+# 2) Show the 30-day Close Variance Table for Selected Ticker
+# ---------------------------------------------------------
+st.subheader(f"{ticker} – Last 30 Days Closing Variance")
+
+# Download last 40 days to ensure we have 30 valid closes
+hist = yf.download(ticker, period="40d", interval="1d", progress=False)
+
+if hist.empty:
+    st.warning(f"Could not retrieve data for {ticker}.")
+else:
+    # Flatten MultiIndex columns if needed
+    if isinstance(hist.columns, pd.MultiIndex):
+        hist.columns = ['_'.join(col).strip() for col in hist.columns.values]
+
+    # Identify Close column
+    close_cols = [c for c in hist.columns if "Close" in c]
+    if not close_cols:
+        st.warning("No Close column found for this ticker.")
+    else:
+        close_col = close_cols[0]
+
+        # Slice last 30 days FIRST
+        df30 = hist[[close_col]].dropna().tail(30).copy()
+        df30.rename(columns={close_col: "Close"}, inplace=True)
+
+        # Compute variance BEFORE sorting
+        df30["Close_Variance"] = df30["Close"].diff()
+        df30["Pct_Change"] = df30["Close_Variance"] / df30["Close"].shift(1) * 100
+
+        # NOW sort descending
+        df30 = df30.sort_index(ascending=False)
+
+        # Format for display
+        df30_fmt = df30.copy()
+        df30_fmt["Close"] = df30_fmt["Close"].map(lambda x: f"{x:.2f}")
+        df30_fmt["Close_Variance"] = df30_fmt["Close_Variance"].map(lambda x: f"{x:.2f}")
+        df30_fmt["Pct_Change"] = df30_fmt["Pct_Change"].map(lambda x: f"{x:.2f}%")
+
+        # Show table
+        st.dataframe(df30_fmt, height=400, use_container_width=True)
+
+# ---------------------------------------------------------
+# 3) Show the 7-day intraday table SECOND
 # ---------------------------------------------------------
 st.subheader(f"Intraday Data (Last {slice_days} Days, {interval} Resolution)")
 st.write("Intraday data shape:", df_last7.shape)
@@ -411,3 +517,4 @@ for col in ["Open", "High", "Low", "Close"]:
     df_last7_fmt[col] = df_last7_fmt[col].map(lambda x: f"{x:.2f}")
 
 st.dataframe(df_last7_fmt, height=600, use_container_width=True)
+
