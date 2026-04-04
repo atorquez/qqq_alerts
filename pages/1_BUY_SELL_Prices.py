@@ -6,7 +6,7 @@ import pandas as pd
 import numpy as np
 import altair as alt
 
-# REVISION: 04.04.26
+# REVISION: 04.04.26 v1
 
 #st.title("🔮 Wishing Well - Smart Way to Trade")
 st.title("🌠 BUY and SELL Strategies")
@@ -51,10 +51,10 @@ df = df.dropna()
 # ---------------------------------------------------------
 idx = pd.to_datetime(df.index)
 
-if idx.tz is None:
-    df.index = idx.tz_localize("UTC").tz_convert("US/Eastern")
-else:
-    df.index = idx.tz_convert("US/Eastern")
+# ---------------------------------------------------------
+# Clean timezone handling for daily data
+# ---------------------------------------------------------
+df.index = pd.to_datetime(df.index).tz_localize(None)
 
 # ---------------------------------------------------------
 # Slice last 7 days (or days_back if < 7)
