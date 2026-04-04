@@ -7,7 +7,7 @@ import numpy as np
 import altair as alt
 import math
 
-# REVISION: 04.04.26 v7 — Stable Percentiles + Stable Timezones + Stable Slicing
+# REVISION: 04.04.26 v7-1 — Stable Percentiles + Stable Timezones + Stable Slicing
 
 st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
