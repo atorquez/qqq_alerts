@@ -7,7 +7,7 @@ import numpy as np
 import altair as alt
 import math
 
-# REVISION: 04.04.26 v7-1 — Stable Percentiles + Stable Timezones + Stable Slicing
+# REVISION: 04.08.26 v3 — Fixed daily slicing + fixed percentiles + compact ladder
 
 st.title("🌠 BUY and SELL Strategies")
 st.write("Define the best BUY and SELL prices based on your WIN cycle strategies: for example, small percentages 0.5% to 1.5% the WIN cycles are faster and high percentages over 1.5% the WIN cycles are longer.")
@@ -20,7 +20,7 @@ ticker = st.sidebar.text_input("Ticker", "TQQQ")
 interval = st.sidebar.selectbox("Interval", ["5m", "1m"], index=1)
 days_back = st.sidebar.slider("Days Back", 5, 10, 7)
 
-# Fetch intraday data early so we can compute available daily closes
+# Fetch intraday data
 period_str = f"{days_back}d"
 df = yf.download(ticker, period=period_str, interval=interval, progress=False)
 
@@ -30,11 +30,14 @@ if df.empty:
 
 df = df.dropna()
 
-# Clean timezone (Yahoo returns UTC sometimes)
+# Clean timezone
 df.index = pd.to_datetime(df.index).tz_localize(None)
 
-# Compute available daily closes BEFORE showing percentile slider
-df_temp_daily = df["Close"].resample("1D").last().dropna()
+# ---------------------------------------------------------
+# SAFE daily close extraction BEFORE percentile slider
+# ---------------------------------------------------------
+df.index = pd.to_datetime(df.index)
+df_temp_daily = df["Close"].groupby(df.index.date).last().dropna()
 available_days = len(df_temp_daily)
 
 # Dynamic percentile window
@@ -51,18 +54,18 @@ exit_percentile = st.sidebar.slider("SELL Percentile", 60, 90, 85)
 gain_target = st.sidebar.slider("Gain Target (%)", 1.5, 3.0, 2.0)
 
 # ---------------------------------------------------------
-# Slice last 7 days (stable)
+# Slice last N calendar days (correct fix)
 # ---------------------------------------------------------
 slice_days = min(days_back, 7)
-df_last7 = df.tail(slice_days)
+df_last7 = df[df.index >= (df.index.max() - pd.Timedelta(days=slice_days))]
 
 # ---------------------------------------------------------
-# Compute daily closes for percentile window (auto-adjust + safe fallback)
+# Compute daily closes for percentile window (safe version)
 # ---------------------------------------------------------
-daily = df_last7["Close"].resample("1D").last().dropna()
+df_last7.index = pd.to_datetime(df_last7.index)
+daily = df_last7["Close"].groupby(df_last7.index.date).last().dropna()
 available_days = len(daily)
 
-# Case 1: No daily data at all
 if available_days == 0:
     st.warning("No daily closes available. Using last intraday close as fallback.")
     last_close = float(df_last7["Close"].iloc[-1])
@@ -73,14 +76,12 @@ if available_days == 0:
 else:
     fallback_mode = False
 
-# Case 2: Only 1 or 2 daily closes → use what we have
 if 1 <= available_days < 3:
     st.warning(f"Only {available_days} daily closes available. Percentiles computed using limited data.")
     effective_window = available_days
 else:
     effective_window = min(window, available_days)
 
-# Compute percentiles normally when possible
 if not fallback_mode:
     recent = daily.tail(effective_window)
     entry_price = float(np.percentile(recent, entry_percentile))
@@ -92,31 +93,23 @@ if not fallback_mode:
 # ---------------------------------------------------------
 def intraday_signals_dual(df, entry_price, exit_price, exit_gain_price):
 
-    # SAFETY GUARD 1 — DataFrame exists and has rows
     if df is None or df.empty:
         return 0, 0, 0, 0, 0
 
-    # SAFETY GUARD 2 — Normalize columns (Yahoo sometimes returns MultiIndex)
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = [col[0] for col in df.columns]
 
-    # SAFETY GUARD 3 — Strip spaces and unify column names
     df.columns = df.columns.str.strip()
-
-    # SAFETY GUARD 4 — Standardize to title case (Open, High, Low, Close)
     df.columns = df.columns.str.title()
 
-    # SAFETY GUARD 5 — Required OHLC columns must exist BEFORE dropna
     required_cols = ["Low", "High", "Close"]
     if not all(col in df.columns for col in required_cols):
         return 0, 0, 0, 0, 0
 
-    # SAFETY GUARD 6 — Drop rows with missing OHLC values
     df = df.dropna(subset=required_cols)
     if len(df) < 2:
         return 0, 0, 0, 0, 0
 
-    # NORMAL LOGIC
     buy_hits = 0
     sell_hits_model = 0
     sell_hits_gain = 0
@@ -136,7 +129,6 @@ def intraday_signals_dual(df, entry_price, exit_price, exit_gain_price):
             momentum = "UP"
         elif close_now < close_prev:
             momentum = "DOWN"
-            # SELL logic
         else:
             momentum = "FLAT"
 
@@ -177,72 +169,49 @@ st.write(f"**SELL #2 (0.8% Gain):** {exit_gain_20:.2f}")
 st.write(f"**SELL #3 (Percentile SELL):** {exit_price:.2f}")
 
 # ---------------------------------------------------------
-# Deep-Dip Discount Planning Table
+# Intraday BUY/SELL Ladder Panel (Compact Version)
 # ---------------------------------------------------------
-st.subheader("Deep-Dip Discount Planning Table")
+st.subheader("📘 Intraday BUY/SELL Ladder (Compact)")
 
-def round_up_to_tenth(x):
-    return math.ceil(x * 10) / 10
+def build_ladder(close_price):
+    rows = []
+    for d in range(0, 13):
+        deep_pct = -d / 100
+        buy_price = close_price * (1 + deep_pct)
 
-tickers = ["SQQQ", "TQQQ"]
-discount_levels = list(range(0, 13))
+        sell_3 = buy_price * 1.03
+        sell_35 = buy_price * 1.035
+        sell_4 = buy_price * 1.04
 
-data = {}
-for t in tickers:
+        rows.append({
+            "Deep %": f"{deep_pct:.0%}",
+            "BUY Price": f"${buy_price:.2f}",
+            "+3%": f"${sell_3:.2f}",
+            "+3.5%": f"${sell_35:.2f}",
+            "+4%": f"${sell_4:.2f}",
+        })
+    return pd.DataFrame(rows)
+
+tickers_ladder = ["TQQQ", "SQQQ"]
+ladder_data = {}
+
+for t in tickers_ladder:
     hist = yf.download(t, period="3d", interval="1d", progress=False)
-    if len(hist) >= 2:
-        hist = hist.sort_index()
-        data[t] = float(hist["Close"].iloc[-2])
+    if len(hist) >= 1:
+        close_price = float(hist["Close"].iloc[-1])
+        ladder_data[t] = build_ladder(close_price)
     else:
-        data[t] = None
+        ladder_data[t] = pd.DataFrame()
 
-rows = []
-for d in discount_levels:
-    row = {"% Discount": f"-{d}%"}
+col1, col2 = st.columns(2)
 
-    for t in tickers:
+with col1:
+    st.write("### TQQQ Ladder")
+    st.dataframe(ladder_data["TQQQ"], height=420, use_container_width=True)
 
-        # Fetch last 3 days of daily data
-        hist = yf.download(t, period="3d", interval="1d", progress=False)
-
-        # SAFETY GUARD 1 — DataFrame must exist and have rows
-        if hist is None or hist.empty:
-            row[t] = "N/A"
-            row[f"SELL {t} 4%"] = "N/A"
-            continue
-
-        # SAFETY GUARD 2 — Normalize columns (Yahoo sometimes returns MultiIndex)
-        if isinstance(hist.columns, pd.MultiIndex):
-            hist.columns = [col[0] for col in hist.columns]
-
-        # SAFETY GUARD 3 — Ensure Close column exists
-        if "Close" not in hist.columns:
-            row[t] = "N/A"
-            row[f"SELL {t} 4%"] = "N/A"
-            continue
-
-        # SAFETY GUARD 4 — Need at least 2 rows to use iloc[-2]
-        if len(hist) < 2:
-            row[t] = "N/A"
-            row[f"SELL {t} 4%"] = "N/A"
-            continue
-
-        # Use yesterday’s close (second‑to‑last row)
-        yesterday_close = float(hist["Close"].iloc[-2])
-
-        # Compute BUY price
-        raw_buy = yesterday_close * (1 - d/100)
-        buy_price = round_up_to_tenth(raw_buy)
-        row[t] = f"${buy_price:.2f}"
-
-        # Compute SELL price (4% gain)
-        raw_sell = buy_price * 1.04
-        sell_price = round_up_to_tenth(raw_sell)
-        row[f"SELL {t} 4%"] = f"${sell_price:.2f}"
-
-    rows.append(row)
-df_discount = pd.DataFrame(rows)
-st.dataframe(df_discount, use_container_width=True, height=420)
+with col2:
+    st.write("### SQQQ Ladder")
+    st.dataframe(ladder_data["SQQQ"], height=420, use_container_width=True)
 
 # ---------------------------------------------------------
 # Trend Panel (MA10 + MA20)
